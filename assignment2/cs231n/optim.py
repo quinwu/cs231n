@@ -71,6 +71,7 @@ def sgd_momentum(w, dw, config=None):
     #                             END OF YOUR CODE                            #
     ###########################################################################
     config['velocity'] = v
+
     return next_w, config
 
 
