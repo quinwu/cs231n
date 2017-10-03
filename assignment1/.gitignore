@@ -2,3 +2,5 @@
 *.pyc
 .env/*
 *.sh
+frameworkpython
+requirements.txt
