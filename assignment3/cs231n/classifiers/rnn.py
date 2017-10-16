@@ -74,7 +74,6 @@ class CaptioningRNN(object):
         for k, v in self.params.items():
             self.params[k] = v.astype(self.dtype)
 
-
     def loss(self, features, captions):
         """
         Compute training-time loss for the RNN. We input image features and
@@ -141,64 +140,75 @@ class CaptioningRNN(object):
         '''
         forward
         '''
-        
+
+      #   print ("features.shape: ",features.shape)
+      #   print ("captions.shape: ",captions.shape)
+      #   print ("captions_in.shape",captions_in.shape)
+      #   print ("captions_out.shape",captions_out.shape)
+
         # affine transformation
-        affine_out, affine_cache = affine_forward(features,self.params['W_proj'],self.params['b_proj'])
-        # print ('affine_out shape:',affine_out.shape)
+        affine_out, affine_cache = affine_forward(
+            features, self.params['W_proj'], self.params['b_proj'])
+      #   print ('affine_out shape:',affine_out.shape)
 
         # word embedding layer
-        word_embedding_out, word_embedding_cache = word_embedding_forward(captions_in,self.params['W_embed'])
-        # print ('word embedding out shape',word_embedding_out.shape)
+        word_embedding_out, word_embedding_cache = word_embedding_forward(
+            captions_in, self.params['W_embed'])
+      #   print ("self.param[w_embed].shape",self.params['W_embed'].shape)
+      #   print ('word embedding out shape',word_embedding_out.shape)
 
         # RNN layer or LSTM layer
         if self.cell_type == 'rnn':
-              rnn_or_lstm_out,rnn_or_lstm_cache = rnn_forward(word_embedding_out, affine_out, self.params['Wx'], self.params['Wh'], self.params['b'])
-              # print ("rnn out shape: ",rnn_or_lstm_out.shape)
+              rnn_or_lstm_out, rnn_or_lstm_cache = rnn_forward(
+                  word_embedding_out, affine_out, self.params['Wx'], self.params['Wh'], self.params['b'])
+            #   print ("rnn out shape: ",rnn_or_lstm_out.shape)
         if self.cell_type == 'lstm':
               pass
-        
-        #temporal affine layter 
-        temporal_affine_out, temporal_affine_cache = temporal_affine_forward(rnn_or_lstm_out,self.params['W_vocab'],self.params['b_vocab'])
-        # print ('temporal affine out shape',temporal_affine_out.shape)
+
+        #temporal affine layter
+        temporal_affine_out, temporal_affine_cache = temporal_affine_forward(
+            rnn_or_lstm_out, self.params['W_vocab'], self.params['b_vocab'])
+      #   print ('temporal affine out shape',temporal_affine_out.shape)
 
         # softmax layer
-        loss ,dtemporal_affine_out = temporal_softmax_loss(temporal_affine_out, captions_out, mask)
-        # print ('loss shape',loss.shape,type(loss))
-
+        loss, dtemporal_affine_out = temporal_softmax_loss(
+            temporal_affine_out, captions_out, mask)
+      #   print ('loss shape',loss.shape,type(loss))
 
         '''
         backward
         '''
 
         # temporal affine layer backward
-        drnn_or_lstm_out , dW_vocab, db_vocab = temporal_affine_backward(dtemporal_affine_out,temporal_affine_cache)
+        drnn_or_lstm_out, dW_vocab, db_vocab = temporal_affine_backward(
+            dtemporal_affine_out, temporal_affine_cache)
         grads['W_vocab'] = dW_vocab
         grads['b_vocab'] = db_vocab
 
-        # rnn or lstm layer backward 
+        # rnn or lstm layer backward
         if self.cell_type == 'rnn':
-              dword_embeding_out, daffine_out, dWx ,dWh, db = rnn_backward(drnn_or_lstm_out,rnn_or_lstm_cache)
+              dword_embeding_out, daffine_out, dWx, dWh, db = rnn_backward(
+                  drnn_or_lstm_out, rnn_or_lstm_cache)
               grads['Wx'] = dWx
               grads['Wh'] = dWh
               grads['b'] = db
         if self.cell_type == 'lstm':
               pass
-        
+
         # word embedding layer backward
-        dW_embed = word_embedding_backward(dword_embeding_out,word_embedding_cache)
+        dW_embed = word_embedding_backward(
+            dword_embeding_out, word_embedding_cache)
         grads['W_embed'] = dW_embed
         # affine layer backward
-        dx ,dW_proj, db_proj = affine_backward(daffine_out,affine_cache)
+        dx, dW_proj, db_proj = affine_backward(daffine_out, affine_cache)
         grads['W_proj'] = dW_proj
         grads['b_proj'] = db_proj
-  
 
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
 
         return loss, grads
-
 
     def sample(self, features, max_length=30):
         """
@@ -255,27 +265,31 @@ class CaptioningRNN(object):
         # a loop.                                                                 #
         ###########################################################################
         N, D = features.shape
-        affine_out , affine_cache = affine_forward(features,W_proj,b_proj)
+        affine_out, affine_cache = affine_forward(features, W_proj, b_proj)
 
-        prev_word_idx = [self._start]*N
+        prev_word_idx = [self._start] * N
+        # print ("self._start: ",self._start)
+        # print ('prev_word_idx: ',prev_word_idx)
+        # print (type(prev_word_idx))
         prev_h = affine_out
         prev_c = np.zeros(prev_h.shape)
-        captions[:,0] = self._start
+        captions[:, 0] = self._start
 
-        for i in range(1,max_length):
-              
+        for i in range(1, max_length):
+
               prev_word = W_embed[prev_word_idx]
-              
+
               if self.cell_type == 'rnn':
-                    next_h, rnn_step_cache = rnn_step_forward(prev_word,prev_h,Wx,Wh,b)
+                    next_h, rnn_step_cache = rnn_step_forward(
+                        prev_word, prev_h, Wx, Wh, b)
               if self.cell_type == 'lstm':
                     pass
 
-              vocab_affine_out, vocab_affine_out_cache = affine_forward(next_h,W_vocab,b_vocab)
-              captions[:,i] = list(np.argmax(vocab_affine_out, axis = 1))
-              prev_word_idx = captions[:,i]
+              vocab_affine_out, vocab_affine_out_cache = affine_forward(
+                  next_h, W_vocab, b_vocab)
+              captions[:, i] = list(np.argmax(vocab_affine_out, axis=1))
+              prev_word_idx = captions[:, i]
               prev_h = next_h
-              
 
         ############################################################################
         #                             END OF YOUR CODE                             #
